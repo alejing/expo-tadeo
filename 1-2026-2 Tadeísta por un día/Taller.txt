@@ -1,0 +1,998 @@
+=======================
+1. Promt inicial
+=======================
+
+Crea un videojuego arcade sencillo llamado “Defensa espacial”, con estética pixel art, para un taller introductorio de Ingeniería de Sistemas dirigido a estudiantes visitantes de una universidad.
+
+El juego debe ser fácil de entender, divertido desde la primera partida y adecuado para adaptarlo posteriormente a un control mediante visión artificial y Teachable Machine.
+
+Entrega el juego completo en un único archivo llamado `defensa_espacial.html`.
+
+**1. Requisitos del archivo**
+
+- Incluye todo el HTML, CSS y JavaScript dentro del mismo archivo.
+- Debe funcionar al abrirlo directamente en un navegador de escritorio.
+- No utilices frameworks, librerías, fuentes, imágenes, sonidos ni recursos externos.
+- Dibuja los elementos del juego mediante Canvas 2D.
+- Entrega una implementación completa. No incluyas pseudocódigo, funciones vacías ni tareas pendientes.
+
+**2. Mecánica del juego**
+
+El jugador controla una nave espacial que debe sobrevivir durante 60 segundos mientras destruye meteoritos.
+
+- La nave comienza cerca de la parte inferior de la pantalla.
+- Los meteoritos aparecen arriba y descienden.
+- La nave dispara automáticamente hacia arriba a intervalos regulares.
+- Cada meteorito destruido suma 10 puntos.
+- El jugador comienza con tres vidas.
+- Chocar con un meteorito sin protección resta una vida.
+- Después de recibir daño, la nave tiene un breve periodo de invulnerabilidad, indicado mediante parpadeo.
+- Los meteoritos que salen por abajo desaparecen sin restar vidas.
+- Al perder todas las vidas, termina la partida.
+- Al sobrevivir los 60 segundos, se muestra una pantalla de misión completada.
+- Ambas pantallas finales muestran el puntaje y permiten volver a jugar.
+
+Utiliza una dificultad inicial baja. Aumenta ligeramente la frecuencia de aparición de meteoritos durante la partida. Evita jefes, niveles adicionales, inventarios y otras mecánicas.
+
+**3. Controles**
+
+- Flecha izquierda: mover hacia la izquierda.
+- Flecha derecha: mover hacia la derecha.
+- Flecha arriba: mover hacia arriba.
+- Flecha abajo: mover hacia abajo.
+- Espacio: activar un escudo que dura un segundo y se recarga en cinco segundos.
+
+La nave debe permanecer dentro del área de juego. Permite mantener las flechas presionadas para moverse continuamente. Normaliza el movimiento diagonal para evitar que sea más rápido.
+
+Mantener espacio presionado no debe activar repetidamente el escudo. Cada activación requiere una nueva pulsación.
+
+Impide que las flechas y espacio desplacen la página mientras se juega.
+
+**4. Presentación visual**
+
+- Estética pixel art con figuras geométricas reconocibles.
+- Fondo espacial oscuro con estrellas.
+- Nave, disparos, meteoritos y escudo claramente diferenciados.
+- Pequeñas partículas al destruir meteoritos.
+- Resolución interna de 640 × 480, escalada proporcionalmente para ajustarse a la ventana.
+- Textos e interfaz en español.
+- Puntaje, vidas, tiempo restante y estado del escudo siempre visibles.
+- Pantalla inicial con instrucciones breves y botón “Jugar”.
+- Pantalla final con botón “Volver a jugar”.
+
+Prioriza la claridad y la fluidez sobre los efectos visuales. El juego debe poder disfrutarse sin sonido.
+
+**5. Preparación para un futuro control con IA**
+
+Separa la lectura del teclado de las reglas del juego.
+
+Define un estado de entrada con las acciones `left`, `right`, `up`, `down` y `shield`. La lógica del juego debe consultar ese estado, sin consultar directamente eventos del teclado.
+
+Centraliza los cambios mediante una función sencilla como `setInputState(...)`. Documenta brevemente cómo un futuro controlador visual podría actualizar esas mismas acciones.
+
+El escudo debe activarse cuando su acción cambia de inactiva a activa, siempre que esté disponible.
+
+Esta estructura debe permitir que posteriormente conectemos las clases `IZQUIERDA`, `DERECHA` y `NEUTRAL` de Teachable Machine sin reescribir el juego. La acción neutral debe detener el movimiento.
+
+En esta versión implementa únicamente el controlador de teclado. No solicites cámara ni cargues modelos de IA.
+
+**6. Calidad técnica**
+
+- Utiliza `requestAnimationFrame` y movimiento basado en tiempo transcurrido.
+- Elimina los disparos, meteoritos y partículas que ya no sean necesarios.
+- Cada colisión debe contabilizarse una sola vez.
+- Limpia las entradas al perder el foco para evitar movimientos atascados.
+- Pausa la partida cuando la pestaña quede oculta y evita saltos de tiempo al regresar.
+- Reiniciar debe restablecer vidas, puntaje, tiempo, escudo y objetos.
+- Evita duplicar eventos o ciclos de animación al reiniciar.
+- Organiza el código en funciones cortas y agrega comentarios breves que faciliten su explicación en un taller.
+
+Antes de entregar, revisa la coherencia de los controles, las colisiones, el escudo y el reinicio.
+
+Devuelve únicamente el contenido completo del archivo HTML dentro de un solo bloque de código, listo para guardarse como `defensa_espacial.html`.
+
+========================================================
+2. Código inicial sin modelo IA Jugabilidad mínima
+========================================================
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Defensa espacial</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #04050c;
+    overflow: hidden;
+    font-family: "Courier New", monospace;
+  }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #wrap {
+    position: relative;
+    font-size: 16px;
+    line-height: 1.45;
+  }
+  canvas {
+    display: block;
+    background: #05060f;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75em;
+    padding: 1.6em;
+    box-sizing: border-box;
+    text-align: center;
+    color: #e8f4ff;
+    background: rgba(4, 5, 12, 0.9);
+    user-select: none;
+  }
+  .screen.hidden { display: none; }
+  h1 {
+    margin: 0;
+    font-size: 1.9em;
+    letter-spacing: 0.09em;
+    color: #6ff2ff;
+    text-shadow: 0 0 0.35em rgba(111, 242, 255, 0.55);
+  }
+  p {
+    margin: 0;
+    font-size: 0.92em;
+    color: #b8c8dd;
+  }
+  .key { color: #ffd166; font-weight: bold; }
+  .big {
+    font-size: 1.5em;
+    color: #ffd166;
+    font-weight: bold;
+  }
+  button {
+    margin-top: 0.4em;
+    padding: 0.55em 1.5em;
+    font-family: inherit;
+    font-size: 1.05em;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    color: #04121a;
+    background: #6ff2ff;
+    border: none;
+    border-radius: 0.25em;
+    cursor: pointer;
+  }
+  button:hover { background: #a9faff; }
+  button:active { transform: translateY(1px); }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="640" height="480"></canvas>
+
+  <!-- Pantalla inicial -->
+  <div id="startScreen" class="screen">
+    <h1>DEFENSA ESPACIAL</h1>
+    <p>Sobrevive <b>60 segundos</b> destruyendo meteoritos.<br>
+       La nave dispara sola. Cada meteorito vale <b>10 puntos</b>.</p>
+    <p><span class="key">← → ↑ ↓</span> mover la nave<br>
+       <span class="key">ESPACIO</span> escudo (1 s, recarga 5 s)</p>
+    <button id="playBtn" type="button">Jugar</button>
+  </div>
+
+  <!-- Pantalla final -->
+  <div id="endScreen" class="screen hidden">
+    <h1 id="endTitle">FIN</h1>
+    <p class="big" id="endScore">Puntaje: 0</p>
+    <p id="endMsg"></p>
+    <button id="replayBtn" type="button">Volver a jugar</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // =====================================================================
+  // 0. CANVAS Y ESCALADO
+  // =====================================================================
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width;   // 640 (resolución interna)
+  const H = canvas.height;  // 480
+  ctx.imageSmoothingEnabled = false;
+
+  const wrap = document.getElementById('wrap');
+
+  /** Escala el lienzo proporcionalmente al tamaño de la ventana. */
+  function resizeCanvas() {
+    const scale = Math.min(window.innerWidth / W, window.innerHeight / H);
+    const w = Math.max(1, Math.floor(W * scale));
+    const h = Math.max(1, Math.floor(H * scale));
+    wrap.style.width = w + 'px';
+    wrap.style.height = h + 'px';
+    wrap.style.fontSize = Math.max(9, 16 * scale) + 'px';
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+  }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  // =====================================================================
+  // 1. ESTADO DE ENTRADA (desacoplado del teclado)
+  // ---------------------------------------------------------------------
+  // Toda la lógica del juego consulta SOLO este objeto. Un futuro
+  // controlador de visión artificial (Teachable Machine) únicamente debe
+  // llamar a setInputState(...) con los resultados de la clasificación.
+  // Ejemplo de integración futura:
+  //
+  //   const clase = clasificarFrame();      // "IZQUIERDA" | "DERECHA" | "NEUTRAL"
+  //   setInputState({
+  //     left:  clase === 'IZQUIERDA',
+  //     right: clase === 'DERECHA',
+  //     up:    false,
+  //     down:  false,
+  //     shield: gestoEscudoDetectado
+  //   });
+  //
+  // La clase NEUTRAL deja left/right en false, por lo que la nave se detiene.
+  // El escudo se activa por flanco (inactivo -> activo), igual que con la
+  // barra espaciadora, así que un gesto sostenido no lo dispara en bucle.
+  // =====================================================================
+  const INPUT = { left: false, right: false, up: false, down: false, shield: false };
+
+  /** Punto único de cambio del estado de entrada. */
+  function setInputState(partial) {
+    if (!partial) return;
+    if (typeof partial.left === 'boolean') INPUT.left = partial.left;
+    if (typeof partial.right === 'boolean') INPUT.right = partial.right;
+    if (typeof partial.up === 'boolean') INPUT.up = partial.up;
+    if (typeof partial.down === 'boolean') INPUT.down = partial.down;
+    if (typeof partial.shield === 'boolean') INPUT.shield = partial.shield;
+  }
+
+  /** Detiene toda acción (al perder el foco o al reiniciar). */
+  function clearInputs() {
+    setInputState({ left: false, right: false, up: false, down: false, shield: false });
+    shieldPrev = false;
+  }
+
+  let shieldPrev = false; // valor del escudo en el fotograma anterior (flanco)
+
+  // --- Traducción teclado -> acciones ---
+  const KEYMAP = {
+    ArrowLeft: 'left',
+    ArrowRight: 'right',
+    ArrowUp: 'up',
+    ArrowDown: 'down',
+    Space: 'shield'
+  };
+
+  function onKeyDown(e) {
+    const action = KEYMAP[e.code];
+    if (!action) return;
+    e.preventDefault();          // evita que las flechas/espacio muevan la página
+    if (e.repeat) return;        // ignora la repetición automática del sistema
+    const patch = {};
+    patch[action] = true;
+    setInputState(patch);
+  }
+
+  function onKeyUp(e) {
+    const action = KEYMAP[e.code];
+    if (!action) return;
+    e.preventDefault();
+    const patch = {};
+    patch[action] = false;
+    setInputState(patch);
+  }
+
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('keyup', onKeyUp);
+  window.addEventListener('blur', clearInputs);
+
+  // =====================================================================
+  // 2. CONSTANTES DE JUEGO
+  // =====================================================================
+  const SHIP_SPEED      = 260;   // px/s
+  const SHIP_HALF_W     = 12;    // caja de colisión
+  const SHIP_HALF_H     = 10;
+  const FIRE_INTERVAL   = 0.28;  // segundos entre disparos automáticos
+  const BULLET_SPEED    = 560;   // px/s
+  const SHIELD_DURATION = 1.0;   // segundos de escudo activo
+  const SHIELD_COOLDOWN = 5.0;   // segundos de recarga
+  const INVULN_TIME     = 1.5;   // invulnerabilidad tras recibir daño
+  const ROUND_TIME      = 60;    // segundos para ganar
+  const START_LIVES     = 3;
+  const HUD_HEIGHT      = 30;
+
+  // =====================================================================
+  // 3. ESTADO DEL JUEGO
+  // =====================================================================
+  const game = {
+    state: 'start',        // 'start' | 'playing' | 'win' | 'over'
+    paused: false,         // pausa por pestaña oculta
+    score: 0,
+    lives: START_LIVES,
+    timeLeft: ROUND_TIME,
+    elapsed: 0,
+    invuln: 0,
+    shieldTime: 0,
+    shieldCd: 0,
+    fireTimer: 0,
+    spawnTimer: 0,
+    ship: { x: W / 2, y: H - 70 },
+    bullets: [],
+    meteors: [],
+    particles: [],
+    stars: []
+  };
+
+  // =====================================================================
+  // 4. UTILIDADES
+  // =====================================================================
+  function clamp(v, min, max) { return v < min ? min : (v > max ? max : v); }
+  function rand(min, max) { return min + Math.random() * (max - min); }
+
+  /** Genera el fondo estrellado (una sola vez). */
+  function createStars() {
+    const stars = [];
+    for (let i = 0; i < 110; i++) {
+      stars.push({
+        x: Math.floor(Math.random() * W),
+        y: Math.floor(Math.random() * H),
+        s: Math.random() < 0.8 ? 1 : 2,
+        ph: Math.random() * Math.PI * 2,
+        sp: rand(0.6, 2.4)
+      });
+    }
+    return stars;
+  }
+  game.stars = createStars();
+
+  /** Crea la "máscara de píxeles" de un meteorito (cuadrícula irregular). */
+  function createMeteorCells(n) {
+    const cells = [];
+    const c = (n - 1) / 2;
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        const d = Math.hypot(i - c, j - c);
+        if (d <= c + 0.25 && Math.random() > 0.18) cells.push([i, j]);
+      }
+    }
+    if (cells.length === 0) cells.push([Math.floor(c), Math.floor(c)]);
+    return cells;
+  }
+
+  const METEOR_PALETTE = ['#8d99a8', '#aab4c2', '#6b7686', '#c2ccd8', '#79879a'];
+
+  /** Añade una explosión de partículas. */
+  function explode(x, y, color, count) {
+    for (let i = 0; i < count; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const spd = rand(40, 180);
+      const life = rand(0.30, 0.75);
+      game.particles.push({
+        x: x,
+        y: y,
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd,
+        life: life,
+        maxLife: life,
+        size: 2 + Math.floor(Math.random() * 3),
+        color: Math.random() < 0.3 ? '#ffffff' : color
+      });
+    }
+  }
+
+  // =====================================================================
+  // 5. REINICIO Y ARRANQUE
+  // =====================================================================
+  function resetGame() {
+    game.score = 0;
+    game.lives = START_LIVES;
+    game.timeLeft = ROUND_TIME;
+    game.elapsed = 0;
+    game.invuln = 0;
+    game.shieldTime = 0;
+    game.shieldCd = 0;
+    game.fireTimer = 0;
+    game.spawnTimer = 0.6;
+    game.ship.x = W / 2;
+    game.ship.y = H - 70;
+    game.bullets.length = 0;
+    game.meteors.length = 0;
+    game.particles.length = 0;
+    clearInputs();
+  }
+
+  function startGame() {
+    resetGame();
+    game.state = 'playing';
+    game.paused = false;
+    startScreen.classList.add('hidden');
+    endScreen.classList.add('hidden');
+    lastTime = performance.now(); // evita saltos de tiempo al empezar
+  }
+
+  // =====================================================================
+  // 6. ACTUALIZACIÓN (solo si el estado es 'playing')
+  // =====================================================================
+  function update(dt) {
+    if (game.state !== 'playing' || game.paused) return;
+
+    updateShieldInput();
+    updateShip(dt);
+    updateShooting(dt);
+    updateSpawner(dt);
+    updateBullets(dt);
+    updateMeteors(dt);
+    updateParticles(dt);
+    handleCollisions();
+    updateTimers(dt);
+  }
+
+  /** Detecta el flanco de subida de la acción "shield". */
+  function updateShieldInput() {
+    const pressed = INPUT.shield;
+    if (pressed && !shieldPrev) {
+      if (game.shieldCd <= 0 && game.shieldTime <= 0) {
+        game.shieldTime = SHIELD_DURATION;
+        game.shieldCd = SHIELD_COOLDOWN;
+        explode(game.ship.x, game.ship.y, '#6ff2ff', 8);
+      }
+    }
+    shieldPrev = pressed;
+  }
+
+  /** Movimiento con normalización de diagonales y límites del área. */
+  function updateShip(dt) {
+    let dx = (INPUT.right ? 1 : 0) - (INPUT.left ? 1 : 0);
+    let dy = (INPUT.down ? 1 : 0) - (INPUT.up ? 1 : 0);
+
+    if (dx !== 0 && dy !== 0) {
+      dx *= Math.SQRT1_2;
+      dy *= Math.SQRT1_2;
+    }
+
+    const s = game.ship;
+    s.x += dx * SHIP_SPEED * dt;
+    s.y += dy * SHIP_SPEED * dt;
+
+    s.x = clamp(s.x, SHIP_HALF_W + 2, W - SHIP_HALF_W - 2);
+    s.y = clamp(s.y, HUD_HEIGHT + 24, H - SHIP_HALF_H - 8);
+  }
+
+  /** Disparo automático hacia arriba. */
+  function updateShooting(dt) {
+    game.fireTimer -= dt;
+    if (game.fireTimer <= 0) {
+      game.fireTimer = FIRE_INTERVAL;
+      game.bullets.push({
+        x: game.ship.x,
+        y: game.ship.y - 16,
+        vy: -BULLET_SPEED
+      });
+    }
+  }
+
+  /** Aparición de meteoritos con dificultad creciente. */
+  function updateSpawner(dt) {
+    game.spawnTimer -= dt;
+    if (game.spawnTimer > 0) return;
+
+    const progress = clamp(game.elapsed / ROUND_TIME, 0, 1); // 0 -> 1
+    const baseInterval = 1.30 - 0.75 * progress;             // 1.30 s -> 0.55 s
+    game.spawnTimer = baseInterval * rand(0.85, 1.15);
+
+    const r = Math.floor(rand(9, 18));
+    const n = r < 12 ? 5 : (r < 15 ? 6 : 7);
+    const cells = createMeteorCells(n);
+    const shades = cells.map(() => METEOR_PALETTE[Math.floor(Math.random() * METEOR_PALETTE.length)]);
+
+    game.meteors.push({
+      x: rand(r + 4, W - r - 4),
+      y: -r - 4,
+      r: r,
+      n: n,
+      cells: cells,
+      shades: shades,
+      vy: rand(70, 110) + 55 * progress,
+      dead: false
+    });
+  }
+
+  function updateBullets(dt) {
+    for (let i = 0; i < game.bullets.length; i++) {
+      const b = game.bullets[i];
+      b.y += b.vy * dt;
+      if (b.y < -12) b.dead = true;
+    }
+    game.bullets = game.bullets.filter(function (b) { return !b.dead; });
+  }
+
+  function updateMeteors(dt) {
+    for (let i = 0; i < game.meteors.length; i++) {
+      const m = game.meteors[i];
+      m.y += m.vy * dt;
+      // Salen por abajo: desaparecen sin restar vidas.
+      if (m.y - m.r > H) m.dead = true;
+    }
+    game.meteors = game.meteors.filter(function (m) { return !m.dead; });
+  }
+
+  function updateParticles(dt) {
+    for (let i = 0; i < game.particles.length; i++) {
+      const p = game.particles[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vx *= 0.97;
+      p.vy *= 0.97;
+      p.life -= dt;
+    }
+    game.particles = game.particles.filter(function (p) { return p.life > 0; });
+  }
+
+  /** ¿El círculo del meteorito toca la caja de la nave? */
+  function shipHits(m) {
+    const s = game.ship;
+    const nx = clamp(m.x, s.x - SHIP_HALF_W, s.x + SHIP_HALF_W);
+    const ny = clamp(m.y, s.y - SHIP_HALF_H, s.y + SHIP_HALF_H);
+    const dx = m.x - nx;
+    const dy = m.y - ny;
+    return dx * dx + dy * dy < m.r * m.r;
+  }
+
+  /** Resuelve todas las colisiones; cada una se cuenta una sola vez. */
+  function handleCollisions() {
+    // --- Balas contra meteoritos ---
+    for (let i = 0; i < game.meteors.length; i++) {
+      const m = game.meteors[i];
+      if (m.dead) continue;
+      for (let j = 0; j < game.bullets.length; j++) {
+        const b = game.bullets[j];
+        if (b.dead) continue;
+        const dx = b.x - m.x;
+        const dy = b.y - m.y;
+        if (dx * dx + dy * dy < m.r * m.r) {
+          b.dead = true;
+          m.dead = true;
+          game.score += 10;
+          explode(m.x, m.y, '#9fb4c9', 12);
+          break;
+        }
+      }
+    }
+
+    // --- Nave contra meteoritos ---
+    for (let i = 0; i < game.meteors.length; i++) {
+      const m = game.meteors[i];
+      if (m.dead) continue;
+      if (!shipHits(m)) continue;
+
+      if (game.shieldTime > 0) {
+        // El escudo destruye el meteorito sin daño.
+        m.dead = true;
+        explode(m.x, m.y, '#6ff2ff', 14);
+      } else if (game.invuln > 0) {
+        // Durante la invulnerabilidad se ignora el impacto.
+        continue;
+      } else {
+        m.dead = true;
+        game.lives -= 1;
+        game.invuln = INVULN_TIME;
+        explode(m.x, m.y, '#ff8a5c', 18);
+        if (game.lives <= 0) {
+          game.lives = 0;
+          endGame(false);
+        }
+      }
+    }
+
+    game.bullets = game.bullets.filter(function (b) { return !b.dead; });
+    game.meteors = game.meteors.filter(function (m) { return !m.dead; });
+  }
+
+  /** Temporizadores generales (escudo, invulnerabilidad, reloj). */
+  function updateTimers(dt) {
+    if (game.invuln > 0) game.invuln = Math.max(0, game.invuln - dt);
+    if (game.shieldTime > 0) game.shieldTime = Math.max(0, game.shieldTime - dt);
+    if (game.shieldCd > 0) game.shieldCd = Math.max(0, game.shieldCd - dt);
+
+    game.elapsed += dt;
+    game.timeLeft -= dt;
+
+    if (game.timeLeft <= 0) {
+      game.timeLeft = 0;
+      endGame(true);
+    }
+  }
+
+  // =====================================================================
+  // 7. FIN DE PARTIDA Y PANTALLAS
+  // =====================================================================
+  function endGame(victory) {
+    if (game.state !== 'playing') return;
+    game.state = victory ? 'win' : 'over';
+    clearInputs();
+    showEndScreen(victory);
+  }
+
+  function showEndScreen(victory) {
+    endTitle.textContent = victory ? '¡MISIÓN CUMPLIDA!' : 'FIN DE LA PARTIDA';
+    endScore.textContent = 'Puntaje: ' + game.score;
+    endMsg.textContent = victory
+      ? 'Sobreviviste los 60 segundos en el espacio.'
+      : 'La nave fue destruida por los meteoritos.';
+    endScreen.classList.remove('hidden');
+  }
+
+  // =====================================================================
+  // 8. DIBUJADO
+  // =====================================================================
+  function drawBackground() {
+    ctx.fillStyle = '#05060f';
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  function drawStars(t) {
+    for (let i = 0; i < game.stars.length; i++) {
+      const st = game.stars[i];
+      const a = 0.30 + 0.70 * (0.5 + 0.5 * Math.sin(t * st.sp + st.ph));
+      ctx.fillStyle = 'rgba(200,225,255,' + a.toFixed(2) + ')';
+      ctx.fillRect(st.x, st.y, st.s, st.s);
+    }
+  }
+
+  function drawShip(t) {
+    const s = game.ship;
+    const x = Math.round(s.x);
+    const y = Math.round(s.y);
+
+    // Parpadeo durante la invulnerabilidad.
+    if (game.invuln > 0 && Math.floor(game.invuln * 12) % 2 === 0) return;
+
+    // Llama del motor (animada)
+    const f = Math.floor(t * 20) % 3;
+    ctx.fillStyle = '#ff9f43';
+    ctx.fillRect(x - 3, y + 7, 6, 4 + f * 2);
+    ctx.fillStyle = '#ffe066';
+    ctx.fillRect(x - 1, y + 7, 2, 3 + f);
+
+    // Alas
+    ctx.fillStyle = '#3aa8d8';
+    ctx.fillRect(x - 14, y + 1, 28, 5);
+    // Cuerpo
+    ctx.fillStyle = '#5ad7ff';
+    ctx.fillRect(x - 7, y - 8, 14, 11);
+    // Punta
+    ctx.fillRect(x - 2, y - 14, 4, 7);
+    // Cabina
+    ctx.fillStyle = '#eafcff';
+    ctx.fillRect(x - 3, y - 6, 6, 4);
+    // Detalles oscuros
+    ctx.fillStyle = '#1f5f80';
+    ctx.fillRect(x - 14, y + 4, 5, 2);
+    ctx.fillRect(x + 9, y + 4, 5, 2);
+  }
+
+  function drawShield(t) {
+    if (game.shieldTime <= 0) return;
+    const s = game.ship;
+    const alpha = 0.45 + 0.35 * Math.sin(t * 22);
+    ctx.strokeStyle = 'rgba(125,255,176,' + alpha.toFixed(2) + ')';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, 24, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(125,255,176,0.10)';
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, 24, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawBullets() {
+    for (let i = 0; i < game.bullets.length; i++) {
+      const b = game.bullets[i];
+      ctx.fillStyle = '#ffe066';
+      ctx.fillRect(Math.round(b.x) - 2, Math.round(b.y) - 8, 4, 10);
+      ctx.fillStyle = '#fffbe0';
+      ctx.fillRect(Math.round(b.x) - 1, Math.round(b.y) - 7, 2, 5);
+    }
+  }
+
+  function drawMeteors() {
+    for (let i = 0; i < game.meteors.length; i++) {
+      const m = game.meteors[i];
+      const cs = (m.r * 2) / m.n;
+      const ox = m.x - m.r;
+      const oy = m.y - m.r;
+      const size = Math.ceil(cs);
+      for (let k = 0; k < m.cells.length; k++) {
+        const cell = m.cells[k];
+        ctx.fillStyle = m.shades[k];
+        ctx.fillRect(
+          Math.round(ox + cell[0] * cs),
+          Math.round(oy + cell[1] * cs),
+          size,
+          size
+        );
+      }
+    }
+  }
+
+  function drawParticles() {
+    for (let i = 0; i < game.particles.length; i++) {
+      const p = game.particles[i];
+      const a = Math.max(0, p.life / p.maxLife);
+      ctx.globalAlpha = a;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawMiniShip(cx, cy, alive) {
+    ctx.fillStyle = alive ? '#5ad7ff' : 'rgba(90,215,255,0.18)';
+    ctx.fillRect(cx - 6, cy + 2, 12, 3);
+    ctx.fillRect(cx - 3, cy - 2, 6, 5);
+    ctx.fillRect(cx - 1, cy - 5, 2, 3);
+  }
+
+  function drawShieldBar() {
+    const x = 14;
+    const y = H - 30;
+    const w = 160;
+    const h = 12;
+
+    // Panel de fondo
+    ctx.fillStyle = 'rgba(8,14,26,0.72)';
+    ctx.fillRect(x - 6, y - 20, w + 12, h + 26);
+
+    ctx.font = 'bold 11px "Courier New", monospace';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#8fb6cc';
+    ctx.fillText('ESCUDO', x, y - 8);
+
+    // Barra
+    ctx.fillStyle = '#16263a';
+    ctx.fillRect(x, y, w, h);
+
+    let ratio = 1;
+    let color = '#6ff2ff';
+    let label = 'LISTO';
+
+    if (game.shieldTime > 0) {
+      ratio = 1;
+      color = '#7dffb0';
+      label = 'ACTIVO';
+    } else if (game.shieldCd > 0) {
+      ratio = 1 - (game.shieldCd / SHIELD_COOLDOWN);
+      color = '#ffd166';
+      label = game.shieldCd.toFixed(1) + 's';
+    }
+
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, Math.round(w * clamp(ratio, 0, 1)), h);
+
+    ctx.fillStyle = '#04121a';
+    ctx.font = 'bold 11px "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, x + w / 2, y + h / 2 + 1);
+  }
+
+  function drawHUD() {
+    // Franja superior
+    ctx.fillStyle = 'rgba(8,14,26,0.72)';
+    ctx.fillRect(0, 0, W, HUD_HEIGHT);
+    ctx.strokeStyle = 'rgba(111,242,255,0.25)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, HUD_HEIGHT + 0.5);
+    ctx.lineTo(W, HUD_HEIGHT + 0.5);
+    ctx.stroke();
+
+    ctx.font = 'bold 16px "Courier New", monospace';
+    ctx.textBaseline = 'middle';
+
+    // Puntaje
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#e8f4ff';
+    ctx.fillText('PUNTOS ' + String(game.score).padStart(4, '0'), 12, 16);
+
+    // Tiempo
+    ctx.textAlign = 'center';
+    ctx.fillStyle = game.timeLeft <= 10 ? '#ff6b6b' : '#e8f4ff';
+    ctx.fillText('TIEMPO ' + Math.ceil(game.timeLeft), W / 2, 16);
+
+    // Vidas
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#e8f4ff';
+    ctx.fillText('VIDAS', W - 72, 16);
+    for (let i = 0; i < START_LIVES; i++) {
+      drawMiniShip(W - 58 + i * 20, 16, i < game.lives);
+    }
+
+    // Escudo
+    drawShieldBar();
+  }
+
+  function drawPauseOverlay() {
+    ctx.fillStyle = 'rgba(5,6,15,0.65)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#e8f4ff';
+    ctx.font = 'bold 30px "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('PAUSA', W / 2, H / 2);
+    ctx.font = 'bold 14px "Courier New", monospace';
+    ctx.fillStyle = '#8fb6cc';
+    ctx.fillText('Vuelve a esta pestaña para continuar', W / 2, H / 2 + 32);
+  }
+
+  function render(t) {
+    drawBackground();
+    drawStars(t);
+    drawMeteors();
+    drawBullets();
+    drawParticles();
+
+    if (game.state === 'playing' || game.state === 'over' || game.state === 'win') {
+      drawShield(t);
+      drawShip(t);
+      drawHUD();
+    }
+
+    if (game.paused && game.state === 'playing') drawPauseOverlay();
+  }
+
+  // =====================================================================
+  // 9. BUCLE PRINCIPAL (un único requestAnimationFrame)
+  // =====================================================================
+  let lastTime = 0;
+
+  function loop(now) {
+    requestAnimationFrame(loop);
+
+    if (!lastTime) lastTime = now;
+    let dt = (now - lastTime) / 1000;
+    lastTime = now;
+
+    // Limita el delta para evitar saltos de tiempo (pestaña oculta, tirones).
+    if (dt > 0.05) dt = 0.05;
+    if (dt < 0) dt = 0;
+
+    update(dt);
+    render(now / 1000);
+  }
+
+  // =====================================================================
+  // 10. EVENTOS DE INTERFAZ Y VISIBILIDAD
+  // =====================================================================
+  const startScreen = document.getElementById('startScreen');
+  const endScreen   = document.getElementById('endScreen');
+  const endTitle    = document.getElementById('endTitle');
+  const endScore    = document.getElementById('endScore');
+  const endMsg      = document.getElementById('endMsg');
+  const playBtn     = document.getElementById('playBtn');
+  const replayBtn   = document.getElementById('replayBtn');
+
+  // Los listeners se registran UNA sola vez (no se duplican al reiniciar).
+  playBtn.addEventListener('click', function () {
+    playBtn.blur();
+    startGame();
+  });
+  replayBtn.addEventListener('click', function () {
+    replayBtn.blur();
+    startGame();
+  });
+
+  // Pausa al ocultar la pestaña y limpieza de entradas.
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      if (game.state === 'playing') game.paused = true;
+      clearInputs();
+    } else {
+      game.paused = false;
+      lastTime = performance.now(); // evita el salto de tiempo al volver
+    }
+  });
+
+  // Evita el desplazamiento de la página con rueda/espacio en el área de juego.
+  canvas.addEventListener('wheel', function (e) { e.preventDefault(); }, { passive: false });
+
+  // Arranca el bucle (solo una vez en toda la vida de la página).
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
+
+========================================
+3. Promt integración TeachableMachine
+========================================
+
+a. https://teachablemachine.withgoogle.com/
+
+Promt
+-----
+
+Ahora adjunto el código en conjunto de un modelo entrenado en Teachable Machine, el tiene las etiquetas: izquierda, derecha, adelante, atras, escudo y nada. El código que te adjunto es capaz de abrir la cámara, identificar la clase según el video o la imagen que este presente y emitir una clasificación según el modelo entrenado. Quiero que fusiones el código del juego html que se controlaba con el teclado, pero que ahora se pueda controlar con el reconocimiento de imágenes producto del modelo entrenado. Ten en cuenta que si reconoce la clase nada, la nave no deberá hacer nada, deberá quedarse quieta solo disparando.
+
+Código + modelo
+----------------
+
+<div>Teachable Machine Image Model</div>
+<button type="button" onclick="init()">Start</button>
+<div id="webcam-container"></div>
+<div id="label-container"></div>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+<script type="text/javascript">
+    // More API functions here:
+    // https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
+
+    // the link to your model provided by Teachable Machine export panel
+    const URL = "https://teachablemachine.withgoogle.com/models/9J5FEYFxm/";
+
+    let model, webcam, labelContainer, maxPredictions;
+
+    // Load the image model and setup the webcam
+    async function init() {
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+
+        // load the model and metadata
+        // Refer to tmImage.loadFromFiles() in the API to support files from a file picker
+        // or files from your local hard drive
+        // Note: the pose library adds "tmImage" object to your window (window.tmImage)
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+
+        // Convenience function to setup a webcam
+        const flip = true; // whether to flip the webcam
+        webcam = new tmImage.Webcam(200, 200, flip); // width, height, flip
+        await webcam.setup(); // request access to the webcam
+        await webcam.play();
+        window.requestAnimationFrame(loop);
+
+        // append elements to the DOM
+        document.getElementById("webcam-container").appendChild(webcam.canvas);
+        labelContainer = document.getElementById("label-container");
+        for (let i = 0; i < maxPredictions; i++) { // and class labels
+            labelContainer.appendChild(document.createElement("div"));
+        }
+    }
+
+    async function loop() {
+        webcam.update(); // update the webcam frame
+        await predict();
+        window.requestAnimationFrame(loop);
+    }
+
+    // run the webcam image through the image model
+    async function predict() {
+        // predict can take in an image, video or canvas html element
+        const prediction = await model.predict(webcam.canvas);
+        for (let i = 0; i < maxPredictions; i++) {
+            const classPrediction =
+                prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+            labelContainer.childNodes[i].innerHTML = classPrediction;
+        }
+    }
+</script>
+
+
+

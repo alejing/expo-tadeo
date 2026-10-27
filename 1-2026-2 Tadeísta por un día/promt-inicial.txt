@@ -1,0 +1,88 @@
+Crea un videojuego arcade sencillo llamado “Defensa espacial”, con estética pixel art, para un taller introductorio de Ingeniería de Sistemas dirigido a estudiantes visitantes de una universidad.
+
+El juego debe ser fácil de entender, divertido desde la primera partida y adecuado para adaptarlo posteriormente a un control mediante visión artificial y Teachable Machine.
+
+Entrega el juego completo en un único archivo llamado `defensa_espacial.html`.
+
+**1. Requisitos del archivo**
+
+- Incluye todo el HTML, CSS y JavaScript dentro del mismo archivo.
+- Debe funcionar al abrirlo directamente en un navegador de escritorio.
+- No utilices frameworks, librerías, fuentes, imágenes, sonidos ni recursos externos.
+- Dibuja los elementos del juego mediante Canvas 2D.
+- Entrega una implementación completa. No incluyas pseudocódigo, funciones vacías ni tareas pendientes.
+
+**2. Mecánica del juego**
+
+El jugador controla una nave espacial que debe sobrevivir durante 60 segundos mientras destruye meteoritos.
+
+- La nave comienza cerca de la parte inferior de la pantalla.
+- Los meteoritos aparecen arriba y descienden.
+- La nave dispara automáticamente hacia arriba a intervalos regulares.
+- Cada meteorito destruido suma 10 puntos.
+- El jugador comienza con tres vidas.
+- Chocar con un meteorito sin protección resta una vida.
+- Después de recibir daño, la nave tiene un breve periodo de invulnerabilidad, indicado mediante parpadeo.
+- Los meteoritos que salen por abajo desaparecen sin restar vidas.
+- Al perder todas las vidas, termina la partida.
+- Al sobrevivir los 60 segundos, se muestra una pantalla de misión completada.
+- Ambas pantallas finales muestran el puntaje y permiten volver a jugar.
+
+Utiliza una dificultad inicial baja. Aumenta ligeramente la frecuencia de aparición de meteoritos durante la partida. Evita jefes, niveles adicionales, inventarios y otras mecánicas.
+
+**3. Controles**
+
+- Flecha izquierda: mover hacia la izquierda.
+- Flecha derecha: mover hacia la derecha.
+- Flecha arriba: mover hacia arriba.
+- Flecha abajo: mover hacia abajo.
+- Espacio: activar un escudo que dura un segundo y se recarga en cinco segundos.
+
+La nave debe permanecer dentro del área de juego. Permite mantener las flechas presionadas para moverse continuamente. Normaliza el movimiento diagonal para evitar que sea más rápido.
+
+Mantener espacio presionado no debe activar repetidamente el escudo. Cada activación requiere una nueva pulsación.
+
+Impide que las flechas y espacio desplacen la página mientras se juega.
+
+**4. Presentación visual**
+
+- Estética pixel art con figuras geométricas reconocibles.
+- Fondo espacial oscuro con estrellas.
+- Nave, disparos, meteoritos y escudo claramente diferenciados.
+- Pequeñas partículas al destruir meteoritos.
+- Resolución interna de 640 × 480, escalada proporcionalmente para ajustarse a la ventana.
+- Textos e interfaz en español.
+- Puntaje, vidas, tiempo restante y estado del escudo siempre visibles.
+- Pantalla inicial con instrucciones breves y botón “Jugar”.
+- Pantalla final con botón “Volver a jugar”.
+
+Prioriza la claridad y la fluidez sobre los efectos visuales. El juego debe poder disfrutarse sin sonido.
+
+**5. Preparación para un futuro control con IA**
+
+Separa la lectura del teclado de las reglas del juego.
+
+Define un estado de entrada con las acciones `left`, `right`, `up`, `down` y `shield`. La lógica del juego debe consultar ese estado, sin consultar directamente eventos del teclado.
+
+Centraliza los cambios mediante una función sencilla como `setInputState(...)`. Documenta brevemente cómo un futuro controlador visual podría actualizar esas mismas acciones.
+
+El escudo debe activarse cuando su acción cambia de inactiva a activa, siempre que esté disponible.
+
+Esta estructura debe permitir que posteriormente conectemos las clases `IZQUIERDA`, `DERECHA` y `NEUTRAL` de Teachable Machine sin reescribir el juego. La acción neutral debe detener el movimiento.
+
+En esta versión implementa únicamente el controlador de teclado. No solicites cámara ni cargues modelos de IA.
+
+**6. Calidad técnica**
+
+- Utiliza `requestAnimationFrame` y movimiento basado en tiempo transcurrido.
+- Elimina los disparos, meteoritos y partículas que ya no sean necesarios.
+- Cada colisión debe contabilizarse una sola vez.
+- Limpia las entradas al perder el foco para evitar movimientos atascados.
+- Pausa la partida cuando la pestaña quede oculta y evita saltos de tiempo al regresar.
+- Reiniciar debe restablecer vidas, puntaje, tiempo, escudo y objetos.
+- Evita duplicar eventos o ciclos de animación al reiniciar.
+- Organiza el código en funciones cortas y agrega comentarios breves que faciliten su explicación en un taller.
+
+Antes de entregar, revisa la coherencia de los controles, las colisiones, el escudo y el reinicio.
+
+Devuelve únicamente el contenido completo del archivo HTML dentro de un solo bloque de código, listo para guardarse como `defensa_espacial.html`.
